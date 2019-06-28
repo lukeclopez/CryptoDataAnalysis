@@ -1,0 +1,12 @@
+Currently we are monitoring messages posted in the top ~500 public Telegram groups for cryptocurrencies.
+We have several months of data and are looking to understand more of the patterns of usage and activity within each group.
+Each group ranges from 1000 to up to 100k members though like with most communities, majority are often inactive. 
+
+I would like to start with discovering the following insights for 30-day and 7-day time periods.
+This will be information for each channel:
+
+1. How many unique posters are there
+2. How many people post daily 
+3. Number of total messages
+4. Estimated percentage of questions (message containing “?”)
+5. Distribution of total messages by top posters
