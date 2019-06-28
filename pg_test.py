@@ -25,4 +25,4 @@ df_chunks = pd.read_sql_table("message_service_message_y2018d311", engine, chunk
 
 for df in df_chunks:
     print(df.head())
-    df.to_csv("crypto.csv", encoding="utf-8")
+    df.to_csv("NEW.csv", encoding="utf-8")
