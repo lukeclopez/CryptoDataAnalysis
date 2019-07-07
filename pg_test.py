@@ -21,7 +21,7 @@ chunk_size = 10**4
 # List Tables
 # df_chunks = pd.read_sql_query('SELECT table_schema,table_name FROM information_schema.tables ORDER BY table_schema,table_name', con=connection, chunksize=chunk_size)
 
-df_chunks = pd.read_sql_table("message_service_message_y2018d311", engine, chunksize=chunk_size)
+# df_chunks = pd.read_sql_table("message_service_message_y2018d311", engine, chunksize=chunk_size)
 
 for df in df_chunks:
     print(df.head())
