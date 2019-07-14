@@ -6,7 +6,8 @@ import sqlalchemy
 import utils
 import os
 import dict_models
-from pprint import pprint
+import settings
+from pprint import pprint, pformat
 
 HOST = "ca-pro-rds-prod.cllw6gj7ocf7.us-east-1.rds.amazonaws.com"
 DB_NAME = "telegram_data"
@@ -21,10 +22,11 @@ channel_names.to_csv("channel_names.csv", encoding="utf-8", index=False)
 # Filepaths
 relevant_tables = pl.Path("info/relevant_tables.txt")  # Tables to include in analysis
 csv_folder = pl.Path("info/message_table_csvs")  # Where to save csvs of info read from DB
-output = pl.Path("info/output/")  # Where to save processed data
+dailies_path = settings.dailies_path  # Where to save processed data
 
 channel_day = dict_models.channel_day
 
+log = settings.configure_logger("default", dailies_path / "logs" / "singleday_analysis.txt")
 
 def analyze_each_channel_in_day(day_of_data_df):
     """
@@ -38,9 +40,10 @@ def analyze_each_channel_in_day(day_of_data_df):
     channel_dfs = utils.get_channel_dfs_list(day_of_data_df)
 
     for channel_df in channel_dfs:
-        channel_day["channel_id"] = utils.get_channel_id(channel_df)
-        channel_day["channel_username"] = utils.get_channel_username(channel_day["channel_id"])
-        channel_day["channel_title"] = utils.get_channel_title(channel_day["channel_id"])
+        channel_id = utils.get_channel_id(channel_df)
+        channel_day["channel_id"] = channel_id
+        channel_day["channel_username"] = utils.get_channel_username(channel_id)
+        channel_day["channel_title"] = utils.get_channel_title(channel_id)
         channel_day["date"] = utils.get_date(channel_df)
         channel_day["unique_posters"] = utils.get_unique_posters_count(channel_df)
         channel_day["total_messages"] = utils.get_message_count(channel_df)
@@ -50,13 +53,14 @@ def analyze_each_channel_in_day(day_of_data_df):
         yield pd.DataFrame(data=channel_day, index=[1])
 
 
-def get_processed_daily_(dfs, save_dfs=False):
+def get_processed_daily_(dfs, limit=None, save_dfs=False):
     """
     This function takes an iterable of dfs.
     If working with dataframes directly, use 'create_df_for_each_relevant_table(relevant_tables, engine)'
     If working with CSVs, use 'get_dfs_from_csvs(csv_folder)'.
-    Both of these functions are in utils.py
+    Both of these functions are in utils.py.
     """
+    counter = 0
     for raw_day_df in dfs:
         rows = [i for i in analyze_each_channel_in_day(raw_day_df)]
 
@@ -64,13 +68,19 @@ def get_processed_daily_(dfs, save_dfs=False):
 
         if save_dfs:
             string_date = utils.get_date(raw_day_df, string=True)
-            finished_day_of_data_df.to_csv(output / f"{string_date}.csv", encoding="utf-8", index=False)
+            finished_day_of_data_df.to_csv(dailies_path / f"{string_date}.csv", encoding="utf-8", index=False)
+            log.info(f"File saved for {string_date}")
+
+        counter += 1
+        if limit and counter > limit:
+            break
 
         yield finished_day_of_data_df
 
 
 if __name__ == "__main__":
-    raw_day_dfs = utils.create_df_for_each_relevant_table(relevant_tables, engine, limit=3)
-    output = list(get_processed_daily_(raw_day_dfs, save_dfs=True))
+    raw_day_dfs = utils.get_dfs_from_csvs(csv_folder, start_file="message_service_message_y2019d045.csv")
+    # raw_day_dfs = utils.create_df_for_each_relevant_table(relevant_tables, engine, save_dfs=True)
+    dailies_path = list(get_processed_daily_(raw_day_dfs, save_dfs=True))
      
     code.interact(local=locals())

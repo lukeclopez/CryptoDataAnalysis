@@ -7,33 +7,43 @@ import statistics
 import utils
 import os
 from pprint import pprint
-from dict_models import channel_period
+import dict_models
+import settings
+
+log = settings.configure_logger("default", pl.Path("info/output") / "logs" / "multiday_analysis.txt")
+channel_period = dict_models.channel_period
+
+dailies_path = settings.dailies_path
+final_path = settings.final_path
+merges_path = settings.merges_path
+
+def merge_days(save_dfs=False):
+    # Make a giant df with all days and all channels in the given folder
+    all_day_dfs = [i for i in utils.get_dfs_from_csvs(dailies_path)]
+    log.info("Giant df list created")
+
+    giant_df = pd.concat(all_day_dfs)
+    log.info("Giant df created")
+
+    # Organize the giant df by channels
+    channel_ids = utils.get_unique_channels(giant_df)
+    channel_dfs = utils.get_channel_dfs_list(giant_df)
+
+    for channel_df in channel_dfs:
+        if save_dfs:
+            channel_id = utils.get_channel_id(channel_df)
+            channel_title = utils.get_channel_title(channel_df)
+            channel_df.to_csv(merges_path / f"{channel_title}-{channel_id}.csv", encoding="utf-8", index=False)
+
+        yield channel_df
 
 
-channel_data_csvs_folder_path = pl.Path("info/output")
-
-# Make a giant df with all days and all channels in the given folder
-all_day_dfs = [i for i in utils.get_dfs_from_csvs(channel_data_csvs_folder_path)]
-giant_df = pd.concat(all_day_dfs)
-
-channel_ids = utils.get_unique_channels(giant_df)
-channel_dfs = utils.get_channel_dfs_list(giant_df, channel_ids)
-
-# Organize the giant df by channels
-for channel_df in channel_dfs:
-    file_name = utils.get_channel_id(channel_df)
-    channel_df.to_csv(f"info/final output/{file_name}.csv", encoding="utf-8", index=False)
-
-# Use chunks to split up dfs by 7 and 30-day periods.
-channel_data_csvs_folder_path = pl.Path("info/final output")
+merged_days = list(merge_days(save_dfs=True))
+log.info("DF days merged")
 
 period_length_in_days = 7
-
-channel_data_dfs = [i for i in utils.get_dfs_from_csvs(channel_data_csvs_folder_path, chunksize=period_length_in_days)]
-
+channel_data_dfs = [i for i in utils.get_dfs_from_csvs(merges_path, chunksize=period_length_in_days)]
 channel_period_dfs_list = []
-
-channel_period = dict_models.channel_period
 
 for chunk in channel_data_dfs:
     # Find average daily posters
@@ -62,11 +72,19 @@ for chunk in channel_data_dfs:
 
     new_chart = utils.get_cumulative_percentage(*pie_charts_list)
 
+    # Find date range
+    start = chunk.iloc[0]["date"]
+    end = chunk.iloc[-1]["date"]
+    date_range = f"{start} - {end}"
+
     # Find number of unique posters for this chunk
     unique_posters_period = len(new_chart)
 
-    channel_period["channel_id"] = chunk["channel_id"].iloc[0].value
+    channel_period["channel_id"] = chunk["channel_id"].iloc[0]
+    channel_period["channel_username"] = chunk["channel_username"].iloc[0]
+    channel_period["channel_title"] = chunk["channel_title"].iloc[0]
     channel_period["period_length_in_days"] = period_length_in_days
+    channel_period["period_date_range"] = date_range
     channel_period["unique_posters"] = unique_posters_period
     channel_period["avg_daily_posters"] = avg_daily_posters
     channel_period["total_messages"] = total_messages_period
@@ -76,14 +94,10 @@ for chunk in channel_data_dfs:
     channel_period_df = pd.DataFrame(channel_period, index=[1])
     channel_period_dfs_list.append(channel_period_df)
 
+    log.info(f"Chunk for period {date_range} was analyzed.")
+
 
 final = pd.concat(channel_period_dfs_list)
-final.to_csv(f"info/final/test.csv", encoding="utf-8", index=False)
-
-# giant_df = pd.concat(all_day_dfs)
-
-# channel_ids = utils.get_unique_channels(giant_df)
-# channel_dfs = utils.get_channel_dfs_list(giant_df, channel_ids)
-
+final.to_csv(final_path / f"{period_length_in_days}day_periods.csv", encoding="utf-8", index=False)
 
 code.interact(local=locals())

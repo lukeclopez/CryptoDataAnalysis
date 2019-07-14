@@ -5,8 +5,10 @@ import code
 import json
 import re
 import os
+import settings
 from pprint import pprint
 
+log = settings.configure_logger("default", "utils.txt")
 
 message_table_csvs = pl.Path("info/message_table_csvs")
 
@@ -29,6 +31,7 @@ def create_df_for_each_relevant_table(relevant_tables_path, engine, limit=None, 
             # There is an option to save the dfs as CSVs so you don't have to repeatedly process them if testing.
             if save_dfs:
                 df.to_csv(message_table_csvs / f"{table_name}.csv", encoding="utf-8", index=False)
+                log.info(f"File saved for {table_name}")
 
             dataframes.append(df)
 
@@ -78,7 +81,7 @@ def get_message_count(channel_df):
 
 def get_est_percentage_of_questions(channel_df, round_digits=4):
     # Find estimated percentage of questions
-    question_rows = channel_df.loc[channel_df["message_text"].str.contains("\?")]
+    question_rows = channel_df.loc[channel_df["message_text"].str.contains("\?", na=False)]
     no_of_questions = len(question_rows)
 
     return round(no_of_questions / len(channel_df), round_digits)
@@ -102,7 +105,10 @@ def get_channel_username(channel_id):
     channel_names_df = pd.read_csv(path)
     channel_row = channel_names_df.loc[channel_names_df["id"] == channel_id]
 
-    return channel_row["channel_username"].iloc[0]
+    try:
+        return channel_row.iloc[0]["channel_username"]
+    except IndexError:
+        return "(No Username)"
 
 
 def get_channel_title(channel_id):
@@ -110,7 +116,10 @@ def get_channel_title(channel_id):
     channel_names_df = pd.read_csv(path)
     channel_row = channel_names_df.loc[channel_names_df["id"] == channel_id]
 
-    return channel_row["channel_title"].iloc[0]
+    try:
+        return channel_row.iloc[0]["channel_title"]
+    except IndexError:
+        return "(No Title)"
 
 
 def get_channel_id(channel_df):
@@ -129,15 +138,26 @@ def get_date(channel_df, string=False):
     return date
 
 
-def get_dfs_from_csvs(csv_folder_path, chunksize=None):
-    each_day_csvs = [f for f in os.listdir(csv_folder_path)]
+def get_dfs_from_csvs(csv_folder_path, chunksize=None, start_file=None):
+    each_day_csvs = [f for f in os.listdir(csv_folder_path) if ".csv" in f]
+
+    start_file_found = False
 
     for csv_file in each_day_csvs:
+        if start_file == csv_file:
+            log.info(f"Start file found")
+            start_file_found = True
+
+        if start_file and not start_file_found:
+            continue
+
         if chunksize:
             new_df = pd.read_csv(csv_folder_path / csv_file, chunksize=chunksize)
+            log.info(f"Chunked df was read.")
             for chunk in new_df:
                 yield chunk
         else:
+            log.info(f"Df was read.")
             new_df = pd.read_csv(csv_folder_path / csv_file)
 
         yield new_df

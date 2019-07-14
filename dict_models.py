@@ -14,6 +14,7 @@ channel_period = {
         "channel_title": "name",
         "channel_id": 0,
         "period_length_in_days": 0,
+        "period_date_range": "date - date",
         "unique_posters": 0,
         "avg_daily_posters": 0,
         "total_messages": 0,
