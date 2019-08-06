@@ -45,12 +45,20 @@ def create_df_for_each_relevant_table(relevant_tables_path, engine, limit=None, 
 
 
 def get_unique_channels(df):
+    """
+    This function returns a set of the channel IDs to ensure
+    that each channel ID only appears once.
+    """
     channel_ids = df["channel_id"].values
 
     return set(channel_ids)
 
 
 def get_channel_dfs_list(df):
+    """
+    This function splits the main dataframe up into smaller dataframes,
+    one dataframe for each channel.
+    """
     channel_id_list = get_unique_channels(df)
     channel_dfs_list = []
 
@@ -62,6 +70,13 @@ def get_channel_dfs_list(df):
 
 
 def get_unique_posters_count(channel_df):
+    """
+    After converting a list of user IDs to a set to remove duplicates,
+    return the length of that set.
+
+    `channel_df` would normally be a pandas dataframe dedicated to one specific channel.
+    See `get_channel_dfs_list`,
+    """
     user_ids = channel_df["user_id"].values
     user_ids_unique = set(user_ids)
     
@@ -69,6 +84,9 @@ def get_unique_posters_count(channel_df):
 
 
 def get_unique_posters_list(channel_df):
+    """
+    Convert a list of user IDs to a set to remove duplicates.
+    """
     user_ids = channel_df["user_id"].values
     user_ids_unique = set(user_ids)
     
@@ -80,7 +98,12 @@ def get_message_count(channel_df):
 
 
 def get_est_percentage_of_questions(channel_df, round_digits=4):
-    # Find estimated percentage of questions
+    """
+    1. Make a new dataframe with all the rows where there is a `?` in the message text.
+    2. Find the length of that new dataframe.
+    3. Divide the length of the new dataframe by the length of the channel dataframe.
+    4. Round to the number specified in `round_digits` and return.
+    """
     question_rows = channel_df.loc[channel_df["message_text"].str.contains("\?", na=False)]
     no_of_questions = len(question_rows)
 
@@ -88,6 +111,13 @@ def get_est_percentage_of_questions(channel_df, round_digits=4):
 
 
 def get_posters_pie_chart(channel_df, round_digits=4):
+    """
+    1. Make a separate dataframe for every unique user.
+    2. Divide the length of each user's dataframe by the length of the channel dataframe,
+       rounded to the to the number specified in `round_digits`.
+    3. Add the result to the `posters_pie_chart` dictionary.
+    4. When done with all users, turn this dictionary into JSON and return it.
+    """
     user_ids_unique= get_unique_posters_list(channel_df)
     
     posters_pie_chart = {}
@@ -139,6 +169,15 @@ def get_date(channel_df, string=False):
 
 
 def get_dfs_from_csvs(csv_folder_path, chunksize=None, start_file=None):
+    """
+    Note: The `start_file` parameter is used when some of the CSVs have already
+    been turned into dataframes and you don't want to repeat the work. My environment
+    (Python 3.7.3, Windows 10) seems to assume alphabetical order within folders.
+
+    1. Make a list of all CSV files in the folder specified in `csv_folder_path`.
+    2. Turn every CSV on the list into a dataframe, then yield it (if a starting
+       file was specified, this process will not begin until it is found).
+    """
     each_day_csvs = [f for f in os.listdir(csv_folder_path) if ".csv" in f]
 
     start_file_found = False
@@ -164,6 +203,17 @@ def get_dfs_from_csvs(csv_folder_path, chunksize=None, start_file=None):
 
 
 def get_cumulative_percentage(*args, round_digits=4): 
+    """
+    This function takes multiple dictionaries returned from the function `get_posters_pie_chart`
+    and merges them into one big pie chart.
+
+    1. Get a list of all unique keys (which are user IDs) in the given dictionaries.
+    2. Make a big dictionary called `posters_and_percents` with all the user IDs as keys and 0 for every value.
+    3. Loop through every user and every dictionary. When we find a percentage that belongs to him,
+       add it to his key in the `posters_and_percents` dictionary.
+    4. Divide every value in `posters_and_percents` by the total number of dictionaries given to the function.
+    5. Put the results of that division (the averages) in a new dictionary and return it.
+    """
     # Find all unique keys
     keys = []
     for d in args:
